@@ -630,6 +630,11 @@
   max-height: 50vh;
   overflow-y: auto;
   text-align: left;
+  scrollbar-width: none;
+}
+
+.admin-list::-webkit-scrollbar {
+  display: none;
 }
 
 /* Yksi käyttäjärivi */
