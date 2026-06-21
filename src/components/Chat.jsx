@@ -1,6 +1,13 @@
 import { useState, useEffect } from 'react'
 import watcherImg from '../assets/watcher.png'
-import { logout } from '../api'
+import {
+  logout,
+  getConversations,
+  getConversation,
+  createConversation,
+  deleteConversation,
+  sendMessage,
+} from '../api'
 import DeleteAccount from './DeleteAccount'
 import Sidebar from './Sidebar'
 
@@ -8,27 +15,22 @@ function Chat({ user, onLogout }) {
   // Pupillin siirtymä keskeltä (x ja y pikseleinä)
   const [pupil, setPupil] = useState({ x: 0, y: 0 });
 
-  // Kaikki keskustelun viestit
-  const [messages, setMessages] = useState([
-    { sender: 'watcher', text: 'Näen sinut. Mitä etsit pimeydestä?' },
-  ]);
+  // Keskustelulista sivupalkkiin
+  const [conversations, setConversations] = useState([]);
 
-  // Syöttökentän nykyinen sisältö
+  // Avoinna olevan keskustelun id ja sen viestit
+  const [activeId, setActiveId] = useState(null);
+  const [messages, setMessages] = useState([]);
+
+  // Syöttökenttä
   const [input, setInput] = useState('');
 
-  // Näytetäänkö tilin poisto -ikkuna
+  // Odottaako Watcherin vastausta
+  const [sending, setSending] = useState(false);
+
+  // Tilin poisto -ikkuna ja sivupalkin tila (mobiili)
   const [showDelete, setShowDelete] = useState(false);
-
-  // Onko sivupalkki auki (mobiilissa)
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  // VÄLIAIKAINEN esimerkkilista (korvataan backend-datalla seuraavaksi)
-  const [conversations] = useState([
-    { _id: '1', title: 'Ensimmäinen keskustelu' },
-    { _id: '2', title: 'Kysymyksiä pimeydestä' },
-    { _id: '3', title: 'Uusi keskustelu' },
-  ]);
-  const [activeId, setActiveId] = useState('1');
 
   // Seurataan hiirtä, jotta silmät katsovat kursoria
   useEffect(() => {
@@ -48,25 +50,108 @@ function Chat({ user, onLogout }) {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
-  // Lähettää käyttäjän viestin
-  function handleSend() {
+  // Ladataan keskustelulista kun komponentti avautuu
+  useEffect(() => {
+    loadConversations();
+  }, []);
+
+  // Hakee keskustelulistan backendista
+  async function loadConversations() {
+    try {
+      const list = await getConversations();
+      setConversations(list);
+    } catch (err) {
+      console.error('Keskustelujen lataus epäonnistui:', err.message);
+    }
+  }
+
+  // Avaa keskustelun: hakee sen viestit backendista
+  async function openConversation(id) {
+    try {
+      const conv = await getConversation(id);
+      setActiveId(id);
+      // Muunnetaan backendin 'role' frontendin 'sender'-muotoon
+      setMessages(conv.messages.map((m) => ({ sender: m.role, text: m.text })));
+      setSidebarOpen(false);
+    } catch (err) {
+      console.error('Keskustelun avaus epäonnistui:', err.message);
+    }
+  }
+
+  // Luo uuden keskustelun ja avaa sen
+  async function handleNew() {
+    try {
+      const conv = await createConversation();
+      await loadConversations();      // päivitä lista
+      setActiveId(conv._id);
+      setMessages([]);                // uusi keskustelu on tyhjä
+      setSidebarOpen(false);
+    } catch (err) {
+      console.error('Uuden keskustelun luonti epäonnistui:', err.message);
+    }
+  }
+
+  // Poistaa keskustelun
+  async function handleDelete(id) {
+    try {
+      await deleteConversation(id);
+      // Jos poistettiin avoinna oleva, tyhjennetään näkymä
+      if (id === activeId) {
+        setActiveId(null);
+        setMessages([]);
+      }
+      await loadConversations();
+    } catch (err) {
+      console.error('Keskustelun poisto epäonnistui:', err.message);
+    }
+  }
+
+  // Lähettää viestin Watcherille
+  async function handleSend() {
     const trimmed = input.trim();
-    if (!trimmed) return;
+    if (!trimmed || sending) return;
+
+    // Jos ei ole avointa keskustelua, luodaan ensin uusi
+    let convId = activeId;
+    if (!convId) {
+      try {
+        const conv = await createConversation();
+        convId = conv._id;
+        setActiveId(convId);
+      } catch (err) {
+        console.error('Keskustelun luonti epäonnistui:', err.message);
+        return;
+      }
+    }
+
+    // Näytetään käyttäjän viesti heti
     setMessages((prev) => [...prev, { sender: 'user', text: trimmed }]);
     setInput('');
-    setTimeout(() => {
+    setSending(true);
+
+    try {
+      // Lähetetään backendille, joka kutsuu OpenAI:ta ja tallentaa
+      const data = await sendMessage(convId, trimmed);
+      // Näytetään Watcherin vastaus
+      setMessages((prev) => [...prev, { sender: 'watcher', text: data.reply }]);
+      // Päivitetään lista (otsikko voi olla muuttunut)
+      await loadConversations();
+    } catch (err) {
       setMessages((prev) => [
         ...prev,
-        { sender: 'watcher', text: 'Kuulen sanasi. Pian vastaan oikeasti...' },
+        { sender: 'watcher', text: 'Watcher vaikenee. Yhteys katkesi.' },
       ]);
-    }, 600);
+      console.error('Viestin lähetys epäonnistui:', err.message);
+    } finally {
+      setSending(false);
+    }
   }
 
   // Uloskirjautuminen
   async function handleLogout() {
     try {
-      await logout();        // poistaa tokenin backendissä
-      onLogout();            // kertoo App:lle → palataan login-sivulle
+      await logout();
+      onLogout();
     } catch (err) {
       console.error('Uloskirjautuminen epäonnistui:', err.message);
     }
@@ -74,22 +159,17 @@ function Chat({ user, onLogout }) {
 
   return (
     <div className="layout">
-      {/* Tumma peite mobiilissa kun sivupalkki auki — klikkaus sulkee */}
       {sidebarOpen && (
         <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)}></div>
       )}
 
-      {/* Sivupalkin kääre — mobiilissa liukuu päälle */}
       <div className={`sidebar-wrap ${sidebarOpen ? 'is-open' : ''}`}>
         <Sidebar
           conversations={conversations}
           activeId={activeId}
-          onSelect={(id) => {
-            setActiveId(id);
-            setSidebarOpen(false);   // sulkee sivupalkin mobiilissa valinnan jälkeen
-          }}
-          onNew={() => console.log('uusi keskustelu')}
-          onDelete={(id) => console.log('poista', id)}
+          onSelect={openConversation}
+          onNew={handleNew}
+          onDelete={handleDelete}
           user={user}
           onLogout={handleLogout}
           onDeleteAccount={() => setShowDelete(true)}
@@ -98,10 +178,8 @@ function Chat({ user, onLogout }) {
       </div>
 
       <div className="app">
-        {/* Taustakuva chatin takana, vahvasti himmennetty */}
         <img src={watcherImg} alt="" className="chat-bg" />
 
-        {/* Hampurilaisnappi — näkyy vain mobiilissa */}
         <button className="menu-btn" onClick={() => setSidebarOpen(true)}>
           ☰
         </button>
@@ -125,6 +203,13 @@ function Chat({ user, onLogout }) {
         </header>
 
         <main className="messages">
+          {/* Jos ei viestejä, näytetään tervehdys */}
+          {messages.length === 0 && (
+            <div className="message message-watcher">
+              <p>Näen sinut. Mitä etsit pimeydestä?</p>
+            </div>
+          )}
+
           {messages.map((msg, i) => (
             <div
               key={i}
@@ -133,6 +218,13 @@ function Chat({ user, onLogout }) {
               <p>{msg.text}</p>
             </div>
           ))}
+
+          {/* Watcher kirjoittaa -ilmaisin */}
+          {sending && (
+            <div className="message message-watcher">
+              <p className="typing">Watcher tarkkailee...</p>
+            </div>
+          )}
         </main>
 
         <footer className="composer">
@@ -143,13 +235,13 @@ function Chat({ user, onLogout }) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            disabled={sending}
           />
-          <button className="composer-send" onClick={handleSend}>
+          <button className="composer-send" onClick={handleSend} disabled={sending}>
             Lähetä
           </button>
         </footer>
 
-        {/* Tilin poisto -ikkuna, näkyy vain kun showDelete on tosi */}
         {showDelete && (
           <DeleteAccount
             onClose={() => setShowDelete(false)}

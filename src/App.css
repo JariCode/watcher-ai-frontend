@@ -595,6 +595,12 @@
   padding: 0;
 }
 
+/* "Watcher tarkkailee..." -ilmaisin */
+.typing {
+  opacity: 0.7;
+  font-style: italic;
+}
+
 
 /* --- MOBIILI: enintään 768px leveä --- */
 @media (max-width: 768px) {

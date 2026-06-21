@@ -81,3 +81,11 @@ export function createConversation() {
 export function deleteConversation(id) {
   return request(`/conversations/${id}`, { method: 'DELETE' });
 }
+
+// Lähetä viesti Watcherille keskustelussa
+export function sendMessage(id, text) {
+  return request(`/conversations/${id}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ text }),
+  });
+}
