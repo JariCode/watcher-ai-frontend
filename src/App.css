@@ -31,6 +31,11 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  scrollbar-width: none;          /* Firefox */
+}
+
+.messages::-webkit-scrollbar {
+  display: none;                  /* Chrome, Safari, Edge */
 }
 
 /* Alapalkki — pysyy pohjassa, ei kutistu */
@@ -465,6 +470,11 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  scrollbar-width: none;
+}
+
+.sidebar-list::-webkit-scrollbar {
+  display: none;
 }
 
 .sidebar-empty {
@@ -650,6 +660,12 @@
   .eye {
     width: 52px;
     height: 20px;
+  }
+
+   /* Pupilli pienenee silmän mukana, ettei valu reunojen yli */
+  .pupil {
+    width: 4px;
+    height: 14px;
   }
 
   .header h1 {

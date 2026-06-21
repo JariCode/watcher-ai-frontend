@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import watcherImg from '../assets/watcher.png'
 import {
   logout,
@@ -32,6 +32,12 @@ function Chat({ user, onLogout }) {
   const [showDelete, setShowDelete] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Viittaus viestialueen loppuun (automaattista vieritystä varten)
+  const messagesEndRef = useRef(null);
+
+  // Viittaus syöttökenttään (automaattista fokusta varten)
+  const inputRef = useRef(null);
+
   // Seurataan hiirtä, jotta silmät katsovat kursoria
   useEffect(() => {
     function handleMouseMove(e) {
@@ -54,6 +60,18 @@ function Chat({ user, onLogout }) {
   useEffect(() => {
     loadConversations();
   }, []);
+
+  // Vieritetään alas aina kun viestit muuttuvat
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, sending]);
+
+  // Fokusoidaan syöttökenttä kun se vapautuu (ei lähetä-tilassa) tai keskustelu vaihtuu
+  useEffect(() => {
+    if (!sending) {
+      inputRef.current?.focus();
+    }
+  }, [sending, activeId]);
 
   // Hakee keskustelulistan backendista
   async function loadConversations() {
@@ -225,6 +243,9 @@ function Chat({ user, onLogout }) {
               <p className="typing">Watcher tarkkailee...</p>
             </div>
           )}
+
+          {/* Tyhjä merkki johon vieritetään */}
+          <div ref={messagesEndRef}></div>
         </main>
 
         <footer className="composer">
@@ -236,6 +257,7 @@ function Chat({ user, onLogout }) {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
             disabled={sending}
+            ref={inputRef}
           />
           <button className="composer-send" onClick={handleSend} disabled={sending}>
             Lähetä
