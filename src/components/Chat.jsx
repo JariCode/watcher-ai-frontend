@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import watcherImg from '../assets/watcher.png'
 import {
   logout,
@@ -12,14 +13,17 @@ import DeleteAccount from './DeleteAccount'
 import Sidebar from './Sidebar'
 
 function Chat({ user, onLogout }) {
+  // Keskustelun id URL:sta (/chat/:id). Tyhjällä etusivulla undefined.
+  const { id } = useParams();
+  const navigate = useNavigate();
+
   // Pupillin siirtymä keskeltä (x ja y pikseleinä)
   const [pupil, setPupil] = useState({ x: 0, y: 0 });
 
   // Keskustelulista sivupalkkiin
   const [conversations, setConversations] = useState([]);
 
-  // Avoinna olevan keskustelun id ja sen viestit
-  const [activeId, setActiveId] = useState(null);
+  // Avoinna olevan keskustelun viestit
   const [messages, setMessages] = useState([]);
 
   // Syöttökenttä
@@ -61,17 +65,27 @@ function Chat({ user, onLogout }) {
     loadConversations();
   }, []);
 
+  // Kun URL:n id muuttuu (myös sivun päivityksessä), avataan se keskustelu.
+  // Jos id puuttuu (etusivu /), näytetään tyhjä näkymä.
+  useEffect(() => {
+    if (id) {
+      openConversation(id);
+    } else {
+      setMessages([]);
+    }
+  }, [id]);
+
   // Vieritetään alas aina kun viestit muuttuvat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, sending]);
 
-  // Fokusoidaan syöttökenttä kun se vapautuu (ei lähetä-tilassa) tai keskustelu vaihtuu
+  // Fokusoidaan syöttökenttä kun se vapautuu tai keskustelu vaihtuu
   useEffect(() => {
     if (!sending) {
       inputRef.current?.focus();
     }
-  }, [sending, activeId]);
+  }, [sending, id]);
 
   // Hakee keskustelulistan backendista
   async function loadConversations() {
@@ -84,39 +98,38 @@ function Chat({ user, onLogout }) {
   }
 
   // Avaa keskustelun: hakee sen viestit backendista
-  async function openConversation(id) {
+  async function openConversation(convId) {
     try {
-      const conv = await getConversation(id);
-      setActiveId(id);
-      // Muunnetaan backendin 'role' frontendin 'sender'-muotoon
+      const conv = await getConversation(convId);
       setMessages(conv.messages.map((m) => ({ sender: m.role, text: m.text })));
       setSidebarOpen(false);
     } catch (err) {
       console.error('Keskustelun avaus epäonnistui:', err.message);
+      // Jos keskustelua ei löydy (esim. poistettu), palataan etusivulle
+      navigate('/');
     }
   }
 
-  // Luo uuden keskustelun ja avaa sen
-  async function handleNew() {
-    try {
-      const conv = await createConversation();
-      await loadConversations();      // päivitä lista
-      setActiveId(conv._id);
-      setMessages([]);                // uusi keskustelu on tyhjä
-      setSidebarOpen(false);
-    } catch (err) {
-      console.error('Uuden keskustelun luonti epäonnistui:', err.message);
-    }
+  // Sivupalkista keskustelun valinta → navigoidaan sen URL:iin
+  function handleSelect(convId) {
+    navigate(`/chat/${convId}`);
+    setSidebarOpen(false);
+  }
+
+  // Luo uuden keskustelun → siirrytään etusivulle (tyhjä näkymä)
+  function handleNew() {
+    navigate('/');
+    setMessages([]);
+    setSidebarOpen(false);
   }
 
   // Poistaa keskustelun
-  async function handleDelete(id) {
+  async function handleDelete(convId) {
     try {
-      await deleteConversation(id);
-      // Jos poistettiin avoinna oleva, tyhjennetään näkymä
-      if (id === activeId) {
-        setActiveId(null);
-        setMessages([]);
+      await deleteConversation(convId);
+      // Jos poistettiin avoinna oleva, palataan etusivulle
+      if (convId === id) {
+        navigate('/');
       }
       await loadConversations();
     } catch (err) {
@@ -129,13 +142,13 @@ function Chat({ user, onLogout }) {
     const trimmed = input.trim();
     if (!trimmed || sending) return;
 
-    // Jos ei ole avointa keskustelua, luodaan ensin uusi
-    let convId = activeId;
+    // Jos ei ole avointa keskustelua (etusivu), luodaan ensin uusi ja siirrytään siihen
+    let convId = id;
     if (!convId) {
       try {
         const conv = await createConversation();
         convId = conv._id;
-        setActiveId(convId);
+        navigate(`/chat/${convId}`);   // URL vaihtuu uuteen keskusteluun
       } catch (err) {
         console.error('Keskustelun luonti epäonnistui:', err.message);
         return;
@@ -148,11 +161,8 @@ function Chat({ user, onLogout }) {
     setSending(true);
 
     try {
-      // Lähetetään backendille, joka kutsuu OpenAI:ta ja tallentaa
       const data = await sendMessage(convId, trimmed);
-      // Näytetään Watcherin vastaus
       setMessages((prev) => [...prev, { sender: 'watcher', text: data.reply }]);
-      // Päivitetään lista (otsikko voi olla muuttunut)
       await loadConversations();
     } catch (err) {
       setMessages((prev) => [
@@ -184,8 +194,8 @@ function Chat({ user, onLogout }) {
       <div className={`sidebar-wrap ${sidebarOpen ? 'is-open' : ''}`}>
         <Sidebar
           conversations={conversations}
-          activeId={activeId}
-          onSelect={openConversation}
+          activeId={id}
+          onSelect={handleSelect}
           onNew={handleNew}
           onDelete={handleDelete}
           user={user}
@@ -221,7 +231,6 @@ function Chat({ user, onLogout }) {
         </header>
 
         <main className="messages">
-          {/* Jos ei viestejä, näytetään tervehdys */}
           {messages.length === 0 && (
             <div className="message message-watcher">
               <p>Näen sinut. Mitä etsit pimeydestä?</p>
@@ -237,14 +246,12 @@ function Chat({ user, onLogout }) {
             </div>
           ))}
 
-          {/* Watcher kirjoittaa -ilmaisin */}
           {sending && (
             <div className="message message-watcher">
               <p className="typing">Watcher tarkkailee...</p>
             </div>
           )}
 
-          {/* Tyhjä merkki johon vieritetään */}
           <div ref={messagesEndRef}></div>
         </main>
 
