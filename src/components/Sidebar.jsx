@@ -1,5 +1,5 @@
 // Sivupalkki: uusi keskustelu + lista + käyttäjän napit alhaalla
-function Sidebar({ conversations, activeId, onSelect, onNew, onDelete, user, onLogout, onDeleteAccount, onClose }) {
+function Sidebar({ conversations, activeId, onSelect, onNew, onDelete, user, onLogout, onDeleteAccount, onClose, onAdmin }) {
   return (
     <aside className="sidebar">
       {/* Sulkunappi — näkyy vain mobiilissa */}
@@ -41,6 +41,14 @@ function Sidebar({ conversations, activeId, onSelect, onNew, onDelete, user, onL
       {/* Alaosa: käyttäjä ja napit */}
       <div className="sidebar-footer">
         <div className="sidebar-user">{user?.username}</div>
+
+        {/* Admin-nappi näkyy vain adminille */}
+        {user?.role === 'admin' && (
+          <button className="sidebar-footer-btn sidebar-footer-admin" onClick={onAdmin}>
+            Käyttäjien hallinta
+          </button>
+        )}
+
         <button className="sidebar-footer-btn" onClick={onLogout}>
           Kirjaudu ulos
         </button>

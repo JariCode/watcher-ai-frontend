@@ -11,6 +11,7 @@ import {
 } from '../api'
 import DeleteAccount from './DeleteAccount'
 import Sidebar from './Sidebar'
+import AdminPanel from './AdminPanel'
 
 function Chat({ user, onLogout }) {
   // Keskustelun id URL:sta (/chat/:id). Tyhjällä etusivulla undefined.
@@ -35,6 +36,9 @@ function Chat({ user, onLogout }) {
   // Tilin poisto -ikkuna ja sivupalkin tila (mobiili)
   const [showDelete, setShowDelete] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Näytetäänkö admin-paneeli
+  const [showAdmin, setShowAdmin] = useState(false);
 
   // Viittaus viestialueen loppuun (automaattista vieritystä varten)
   const messagesEndRef = useRef(null);
@@ -202,6 +206,7 @@ function Chat({ user, onLogout }) {
           onLogout={handleLogout}
           onDeleteAccount={() => setShowDelete(true)}
           onClose={() => setSidebarOpen(false)}
+          onAdmin={() => setShowAdmin(true)}
         />
       </div>
 
@@ -275,6 +280,13 @@ function Chat({ user, onLogout }) {
           <DeleteAccount
             onClose={() => setShowDelete(false)}
             onDeleted={onLogout}
+          />
+        )}
+
+        {showAdmin && (
+          <AdminPanel
+            onClose={() => setShowAdmin(false)}
+            currentUserId={user.id}
           />
         )}
       </div>

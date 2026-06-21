@@ -611,6 +611,103 @@
   font-style: italic;
 }
 
+/* --- ADMIN-PANEELI --- */
+
+/* Leveämpi modaali käyttäjälistalle */
+.admin-modal {
+  max-width: 480px;
+}
+
+.admin-title {
+  color: var(--accent-glow);   /* magenta, ei punainen (ei poistovaroitus) */
+}
+
+/* Käyttäjälista */
+.admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 50vh;
+  overflow-y: auto;
+  text-align: left;
+}
+
+/* Yksi käyttäjärivi */
+.admin-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  gap: 8px;
+}
+
+.admin-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.admin-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Roolimerkki */
+.admin-role {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.admin-role-admin {
+  color: var(--accent-glow);
+}
+
+.admin-role-user {
+  color: var(--text-dim);
+}
+
+/* Toimintonapit rivillä */
+.admin-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.admin-btn {
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.admin-btn:hover {
+  border-color: var(--accent);
+}
+
+.admin-btn-danger:hover {
+  border-color: #ff6b9d;
+  color: #ff6b9d;
+}
+
+/* Admin-nappi sivupalkissa */
+.sidebar-footer-admin:hover {
+  border-color: var(--accent-glow);
+  color: var(--accent-glow);
+}
+
 
 /* --- MOBIILI: enintään 768px leveä --- */
 @media (max-width: 768px) {

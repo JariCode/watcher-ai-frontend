@@ -89,3 +89,23 @@ export function sendMessage(id, text) {
     body: JSON.stringify({ text }),
   });
 }
+
+// --- ADMIN ---
+
+// Hae kaikki käyttäjät (vain admin)
+export function getAllUsers() {
+  return request('/admin/users');
+}
+
+// Poista käyttäjä (vain admin)
+export function adminDeleteUser(id) {
+  return request(`/admin/users/${id}`, { method: 'DELETE' });
+}
+
+// Vaihda käyttäjän rooli (vain admin)
+export function adminSetRole(id, role) {
+  return request(`/admin/users/${id}/role`, {
+    method: 'PATCH',
+    body: JSON.stringify({ role }),
+  });
+}
