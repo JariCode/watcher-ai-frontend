@@ -3,9 +3,10 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
+  flex: 1;              /* täyttää sivupalkin viereisen tilan */
   max-width: 768px;
   margin: 0 auto;
-  position: relative;     /* lisää tämä rivi */
+  position: relative;
 }
 
 /* Yläpalkki — pysyy ylhäällä, ei kutistu */
@@ -86,7 +87,6 @@
   margin-bottom: 16px;
 }
 
-/* Silmä — mantelinmuoto + reunahehku drop-shadowilla */
 /* Silmä — viiru + box-shadow-hehku (toimii, toisin kuin clip-path) */
 .eye {
   width: 64px;
@@ -177,7 +177,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;     /* täyttää alueen vääristämättä */
-  opacity: 0.45;         /* himmennys, jotta lomake erottuu */
+  opacity: 0.15;         /* sama himmennys kuin chatissa */
   z-index: 0;
 }
 
@@ -420,4 +420,247 @@
 .modal-delete:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* --- LAYOUT: sivupalkki + chat vierekkäin --- */
+.layout {
+  display: flex;
+  height: 100vh;
+}
+
+/* Sivupalkki vasemmalla */
+.sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  height: 100%;
+  box-sizing: border-box;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  gap: 12px;
+}
+
+/* Uusi keskustelu -nappi */
+.sidebar-new {
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.sidebar-new:hover {
+  background: var(--accent-glow);
+}
+
+/* Keskustelulista */
+.sidebar-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sidebar-empty {
+  color: var(--text-dim);
+  font-size: 14px;
+  text-align: center;
+  margin-top: 20px;
+}
+
+/* Yksittäinen keskustelu listassa */
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.sidebar-item:hover {
+  background: rgba(192, 38, 211, 0.12);
+}
+
+/* Aktiivinen keskustelu korostettuna */
+.sidebar-item.is-active {
+  background: rgba(192, 38, 211, 0.22);
+}
+
+.sidebar-item-title {
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;   /* pitkä otsikko katkaistaan kolmella pisteellä */
+}
+
+/* Poistonappi keskustelun vieressä */
+.sidebar-item-delete {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+
+.sidebar-item-delete:hover {
+  color: #ff6b9d;
+}
+
+/* Sivupalkin alaosa: käyttäjä + napit */
+.sidebar-footer {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sidebar-user {
+  font-size: 13px;
+  color: var(--text-dim);
+  padding: 4px 8px;
+  margin-bottom: 4px;
+}
+
+.sidebar-footer-btn {
+  padding: 10px 12px;
+  font-size: 14px;
+  text-align: left;
+  color: var(--text);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.sidebar-footer-btn:hover {
+  border-color: var(--accent);
+}
+
+.sidebar-footer-danger:hover {
+  border-color: #ff6b9d;
+  color: #ff6b9d;
+}
+
+/* Hampurilaisnappi — piilossa työpöydällä */
+.menu-btn {
+  display: none;
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 3;
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  color: var(--text);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* Sivupalkin kääre — työpöydällä tavallinen, mobiilissa liukuva */
+/* Sivupalkin kääre — työpöydällä tavallinen, mobiilissa liukuva */
+.sidebar-wrap {
+  flex-shrink: 0;
+  height: 100vh;
+}
+
+/* Tumma peite — vain mobiilissa */
+.sidebar-backdrop {
+  display: none;
+}
+
+/* Sivupalkin sulkunappi — piilossa työpöydällä */
+.sidebar-close {
+  display: none;
+  align-self: flex-end;
+  width: 36px;
+  height: 36px;
+  font-size: 22px;
+  color: var(--text);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+
+/* --- MOBIILI: enintään 768px leveä --- */
+@media (max-width: 768px) {
+  /* Sivupalkki pois normaalivirrasta, liukuu vasemmalta päälle */
+  .sidebar-wrap {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 20;
+    transform: translateX(-100%);          /* piilossa vasemmalla */
+    transition: transform 0.25s ease;
+  }
+
+  /* Auki-tilassa liukuu näkyviin */
+  .sidebar-wrap.is-open {
+    transform: translateX(0);
+  }
+
+  .sidebar-close {
+    display: block;
+  }
+
+  /* Tumma peite sivupalkin takana kun auki */
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 15;
+  }
+
+  /* Hampurilaisnappi näkyviin */
+  .menu-btn {
+    display: block;
+  }
+
+  /* Chat täyttää koko leveyden, otsikko siirtyy napin tieltä */
+  .header {
+    padding-left: 64px;   /* tilaa hampurilaisnapille */
+  }
+}
+
+/* --- PIENI MOBIILI: enintään 480px --- */
+@media (max-width: 480px) {
+  /* Pienennetään silmiä ja otsikkoa hieman */
+  .eye {
+    width: 52px;
+    height: 20px;
+  }
+
+  .header h1 {
+    font-size: 18px;
+  }
+
+  /* Viestit voivat olla leveämpiä pienellä ruudulla */
+  .message {
+    max-width: 85%;
+  }
+
+  /* Composer tiiviimmäksi */
+  .composer {
+    padding: 12px;
+  }
+
+  .composer-send {
+    padding: 12px 18px;
+  }
 }
