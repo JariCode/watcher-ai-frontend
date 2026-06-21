@@ -3,8 +3,9 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
-  max-width: 768px;       /* chat ei leviä koko ruudun levyiseksi */
-  margin: 0 auto;         /* keskittää sovelluksen vaakasuunnassa */
+  max-width: 768px;
+  margin: 0 auto;
+  position: relative;     /* lisää tämä rivi */
 }
 
 /* Yläpalkki — pysyy ylhäällä, ei kutistu */
@@ -118,3 +119,305 @@
 .eye-left { transform: rotate(8deg); }
 .eye-right { transform: rotate(-8deg); }
 
+/* Yksittäinen viesti — rivi joka asettuu vasemmalle tai oikealle */
+.message {
+  display: flex;
+  max-width: 75%;
+}
+
+/* Omat viestit oikealle */
+.message-user {
+  align-self: flex-end;
+}
+
+/* Watcherin viestit vasemmalle */
+.message-watcher {
+  align-self: flex-start;
+}
+
+/* Itse kupla */
+.message p {
+  padding: 12px 16px;
+  border-radius: 16px;
+  line-height: 1.5;
+  font-size: 15px;
+}
+
+/* Omat kuplat — magenta-pohja */
+.message-user p {
+  background: var(--accent);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+/* Watcherin kuplat — tumma pohja, vaalea teksti */
+.message-watcher p {
+  background: var(--bg-panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 4px;
+}
+
+/* --- LOGIN-SIVU --- */
+
+/* Koko sivu — taustakuva täyttää ruudun, lomake keskelle */
+.login-page {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Taustakuva — peittää koko ruudun, himmennetty */
+.login-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;     /* täyttää alueen vääristämättä */
+  opacity: 0.45;         /* himmennys, jotta lomake erottuu */
+  z-index: 0;
+}
+
+/* Lomakekortti — lasimainen tumma laatikko kuvan päällä */
+.login-card {
+  position: relative;
+  z-index: 1;            /* kuvan päälle */
+  width: 100%;
+  max-width: 360px;
+  margin: 20px;
+  padding: 32px;
+  background: rgba(10, 6, 18, 0.85);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  backdrop-filter: blur(8px);   /* sumentaa kuvan kortin takaa */
+  text-align: center;
+}
+
+.login-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--accent-glow);
+  margin-bottom: 4px;
+}
+
+.login-subtitle {
+  color: var(--text-dim);
+  margin-bottom: 24px;
+}
+
+/* Lomake — kentät allekkain */
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.login-input {
+  padding: 12px 16px;
+  font-size: 15px;
+  color: var(--text);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  outline: none;
+}
+
+.login-input::placeholder {
+  color: var(--text-dim);
+}
+
+.login-input:focus {
+  border-color: var(--accent);
+}
+
+/* Virheviesti */
+.login-error {
+  color: #ff6b9d;
+  font-size: 14px;
+  margin: 0;
+}
+
+/* Pääpainike (Kirjaudu / Rekisteröidy) */
+.login-button {
+  padding: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+.login-button:hover {
+  background: var(--accent-glow);
+}
+
+.login-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Vaihtolinkki (kirjautuminen <-> rekisteröinti) */
+.login-switch {
+  margin-top: 20px;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.login-switch:hover {
+  color: var(--accent-glow);
+}
+
+/* Latausnäkymä (App.jsx "Watcher herää...") */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  color: var(--accent-glow);
+  font-size: 18px;
+}
+
+/* Chatin taustakuva — kaiken takana, vahvasti himmennetty */
+.chat-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.15;          /* hyvin himmeä, ettei häiritse lukemista */
+  z-index: 0;
+  pointer-events: none;   /* ei estä klikkauksia */
+}
+
+/* Nostetaan chatin osat taustakuvan päälle */
+.header,
+.messages,
+.composer {
+  position: relative;
+  z-index: 1;
+}
+
+/* Käyttäjän napit oikeaan yläkulmaan (väliaikainen paikka) */
+.header-actions {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 2;
+  display: flex;
+  gap: 8px;
+}
+
+.header-btn {
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.header-btn:hover {
+  border-color: var(--accent);
+}
+
+.header-btn-danger:hover {
+  border-color: #ff6b9d;
+  color: #ff6b9d;
+}
+
+/* --- MODAALI (tilin poisto -ikkuna) --- */
+
+/* Tumma peite koko ruudun päällä, keskittää ikkunan */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  padding: 20px;
+}
+
+/* Itse ikkuna */
+.modal {
+  width: 100%;
+  max-width: 360px;
+  padding: 28px;
+  background: rgba(10, 6, 18, 0.95);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  backdrop-filter: blur(8px);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.modal-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #ff6b9d;       /* punertava — varoittava sävy */
+  margin: 0;
+}
+
+.modal-text {
+  color: var(--text-dim);
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Peruuta- ja poista-napit vierekkäin */
+.modal-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.modal-cancel,
+.modal-delete {
+  flex: 1;
+  padding: 11px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.modal-cancel {
+  color: var(--text);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+}
+
+.modal-cancel:hover {
+  border-color: var(--accent);
+}
+
+.modal-delete {
+  color: #fff;
+  background: #c0246b;   /* punertava poistonappi */
+}
+
+.modal-delete:hover {
+  background: #e0327f;
+}
+
+.modal-cancel:disabled,
+.modal-delete:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

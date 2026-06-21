@@ -1,66 +1,37 @@
 import { useState, useEffect } from 'react'
 import './App.css'
+import { getMe } from './api'
+import Login from './components/Login'
+import Chat from './components/Chat'
 
 function App() {
-  // Pupillin siirtymä keskeltä (x ja y pikseleinä)
-  const [pupil, setPupil] = useState({ x: 0, y: 0 });
+  // Kirjautunut käyttäjä (null = ei kirjautunut)
+  const [user, setUser] = useState(null);
 
+  // Ladataanko vielä tietoa kirjautumisesta
+  const [loading, setLoading] = useState(true);
+
+  // Tarkistetaan heti latautuessa onko käyttäjä jo kirjautunut
   useEffect(() => {
-    function handleMouseMove(e) {
-      // Hiiren sijainti suhteessa silmien kohtaan (ruudun keskellä ylhäällä)
-      const eyesX = window.innerWidth / 2;
-      const eyesY = 60;
-      const dx = e.clientX - eyesX;
-      const dy = e.clientY - eyesY;
-
-      // Kulma säilyy, matka rajataan silmän sisälle
-      const angle = Math.atan2(dy, dx);
-      const distance = Math.min(6, Math.hypot(dx, dy) / 40);
-
-      setPupil({
-        x: Math.cos(angle) * distance,
-        y: Math.sin(angle) * distance,
-      });
-    }
-
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
+    getMe()
+      .then((data) => setUser(data))   // token voimassa → käyttäjä kirjautunut
+      .catch(() => setUser(null))      // ei tokenia / vanhentunut → ei kirjautunut
+      .finally(() => setLoading(false));
   }, []);
 
-  return (
-    <div className="app">
-      <header className="header">
-        <div className="eyes">
-          <div className="eye eye-left">
-            <div
-              className="pupil"
-              style={{ transform: `translate(${pupil.x}px, ${pupil.y}px)` }}
-            ></div>
-          </div>
-          <div className="eye eye-right">
-            <div
-              className="pupil"
-              style={{ transform: `translate(${pupil.x}px, ${pupil.y}px)` }}
-            ></div>
-          </div>
-        </div>
-        <h1>Watcher AI</h1>
-      </header>
+  // Odotetaan kunnes tiedetään onko kirjautunut
+  if (loading) {
+    return <div className="loading">Watcher herää...</div>;
+  }
 
-      <main className="messages">
-        {/* Tähän tulevat viestit myöhemmin */}
-      </main>
+  // Jos ei kirjautunut → näytetään Login-sivu
+  // onLogin-funktio kertoo App:lle kun kirjautuminen onnistui
+  if (!user) {
+    return <Login onLogin={setUser} />;
+  }
 
-      <footer className="composer">
-        <input
-          type="text"
-          placeholder="Kysy jotain..."
-          className="composer-input"
-        />
-        <button className="composer-send">Lähetä</button>
-      </footer>
-    </div>
-  );
+  // Kirjautunut → näytetään chat
+  return <Chat user={user} onLogout={() => setUser(null)} />;
 }
 
 export default App;
