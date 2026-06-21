@@ -1,0 +1,24 @@
+/* Värimuuttujat — koko sovelluksen paletti yhdessä paikassa */
+:root {
+  --bg: #0a0612;            /* lähes musta, hitusen violettiin taittava tausta */
+  --bg-panel: #140d20;      /* chat-alueen hieman vaaleampi pohja */
+  --text: #e8e0f0;          /* vaalea leipäteksti */
+  --text-dim: #8a7da0;      /* himmeämpi aputeksti */
+  --accent: #c026d3;        /* magenta — pääväri */
+  --accent-glow: #e879f9;   /* vaaleampi magenta hehkua varten */
+  --border: #2a1f3d;        /* hillityt reunaviivat */
+}
+
+/* Perusnollaus — poistaa selaimen oletusmarginaalit */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  min-height: 100vh;
+}
