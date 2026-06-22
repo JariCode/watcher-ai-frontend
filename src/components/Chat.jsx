@@ -14,6 +14,11 @@ import Sidebar from './Sidebar'
 import AdminPanel from './AdminPanel'
 import mammoth from 'mammoth'
 import * as XLSX from 'xlsx'
+import * as pdfjsLib from 'pdfjs-dist'
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+
+// PDF.js tarvitsee worker-tiedoston taustakäsittelyyn (Vite antaa sille URLin)
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 function Chat({ user, onLogout }) {
   // Keskustelun id URL:sta (/chat/:id). Tyhjällä etusivulla undefined.
@@ -208,14 +213,14 @@ function Chat({ user, onLogout }) {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Rajataan koko (esim. 500 kt — Word-tiedostot voivat olla isompia)
-    if (file.size > 500 * 1024) {
-      alert('Tiedosto on liian suuri (max 500 kt).');
+    // Rajataan koko (5 Mt — riittää PDF:ille ja Office-tiedostoille)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Tiedosto on liian suuri (max 5 Mt).');
       e.target.value = '';
       return;
     }
 
-  // Tarkistetaan onko tiedosto Word-dokumentti (.docx)
+    // Tarkistetaan onko tiedosto Word-dokumentti (.docx)
     const isWord =
       file.name.toLowerCase().endsWith('.docx') ||
       file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
@@ -224,6 +229,11 @@ function Chat({ user, onLogout }) {
     const isExcel =
       file.name.toLowerCase().endsWith('.xlsx') ||
       file.name.toLowerCase().endsWith('.xls');
+
+    // Tarkistetaan onko tiedosto PDF
+    const isPdf =
+      file.name.toLowerCase().endsWith('.pdf') ||
+      file.type === 'application/pdf';
 
     try {
       let content;
@@ -245,6 +255,32 @@ function Chat({ user, onLogout }) {
           return `--- Välilehti: ${name} ---\n${csv}`;
         });
         content = parts.join('\n\n');
+      } else if (isPdf) {
+        // PDF: puretaan teksti sivu sivulta.
+        // isEvalSupported: false estää haitallisen PDF:n koodin ajamisen (turvallisuus)
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({
+          data: arrayBuffer,
+          isEvalSupported: false,
+        }).promise;
+
+        const pages = [];
+        // Käydään läpi jokainen sivu
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          // Yhdistetään sivun tekstipalat välilyönnein
+          const pageText = textContent.items.map((item) => item.str).join(' ');
+          pages.push(pageText);
+        }
+        content = pages.join('\n\n');
+
+        // Jos teksti jäi tyhjäksi, PDF on todennäköisesti skannattu (kuva, ei tekstiä)
+        if (!content || !content.trim()) {
+          alert('PDF:stä ei löytynyt tekstiä. Se voi olla skannattu kuva-PDF.');
+          e.target.value = '';
+          return;
+        }
       } else {
         // Tavallinen teksti/koodi: luetaan suoraan tekstinä
         content = await file.text();
@@ -423,7 +459,7 @@ function Chat({ user, onLogout }) {
               type="file"
               ref={fileInputRef}
               onChange={handleFileSelect}
-              accept=".txt,.md,.js,.jsx,.ts,.tsx,.py,.java,.c,.cpp,.cs,.html,.css,.json,.xml,.csv,.docx,.xlsx,.xls,text/*,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/msword"
+              accept=".txt,.md,.js,.jsx,.ts,.tsx,.py,.java,.c,.cpp,.cs,.html,.css,.json,.xml,.csv,.docx,.xlsx,.xls,.pdf,text/*,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/msword,application/pdf"
               style={{ display: 'none' }}
             />
 
