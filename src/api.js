@@ -1,5 +1,6 @@
-// Backendin osoite. Kehityksessä localhost, tuotannossa vaihdetaan myöhemmin.
-const API_URL = 'http://localhost:5000/api';
+// Backendin osoite tulee ympäristömuuttujasta. Kehityksessä oletus on localhost,
+// tuotannossa (Electron) arvo annetaan build-vaiheessa eikä se päädy koodiin.
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // Yhteinen apufunktio kaikille kutsuille.
 // credentials: 'include' on PAKOLLINEN — se lähettää evästeen (JWT-tokenin) mukana.
