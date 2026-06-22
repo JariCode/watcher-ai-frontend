@@ -30,6 +30,9 @@ function Chat({ user, onLogout }) {
   // Syöttökenttä
   const [input, setInput] = useState('');
 
+  // Liitetyn tekstitiedoston sisältö ja nimi (tai null)
+  const [attachedFile, setAttachedFile] = useState(null);
+
   // Odottaako Watcherin vastausta
   const [sending, setSending] = useState(false);
 
@@ -51,6 +54,9 @@ function Chat({ user, onLogout }) {
 
   // Viittaus puheentunnistukseen (jotta voidaan pysäyttää)
   const recognitionRef = useRef(null);
+
+  // Viittaus piilotettuun tiedosto-inputtiin
+  const fileInputRef = useRef(null);
 
   // Seurataan hiirtä, jotta silmät katsovat kursoria
   useEffect(() => {
@@ -195,10 +201,50 @@ function Chat({ user, onLogout }) {
     setListening(true);
   }
 
+  // Käsittelee valitun tiedoston: lukee sen tekstiksi
+  function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Rajataan koko (esim. 100 kt) — tekstitiedostot ovat pieniä
+    if (file.size > 100 * 1024) {
+      alert('Tiedosto on liian suuri (max 100 kt).');
+      return;
+    }
+
+    // Luetaan tiedoston sisältö tekstinä
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setAttachedFile({
+        name: file.name,
+        content: event.target.result,
+      });
+    };
+    reader.onerror = () => {
+      alert('Tiedoston luku epäonnistui.');
+    };
+    reader.readAsText(file);
+
+    // Tyhjennetään input, jotta saman tiedoston voi valita uudelleen
+    e.target.value = '';
+  }
+
+  // Poistaa liitetyn tiedoston
+  function removeAttachedFile() {
+    setAttachedFile(null);
+  }
+
   // Lähettää viestin Watcherille
   async function handleSend() {
     const trimmed = input.trim();
-    if (!trimmed || sending) return;
+    // Lähetys vaatii joko tekstin tai liitetyn tiedoston
+    if ((!trimmed && !attachedFile) || sending) return;
+
+    // Rakennetaan lähetettävä teksti: käyttäjän viesti + mahdollinen tiedoston sisältö
+    let messageText = trimmed;
+    if (attachedFile) {
+      messageText += `\n\n[Tiedosto: ${attachedFile.name}]\n${attachedFile.content}`;
+    }
 
     // Jos ei ole avointa keskustelua (etusivu), luodaan ensin uusi ja siirrytään siihen
     let convId = id;
@@ -213,13 +259,14 @@ function Chat({ user, onLogout }) {
       }
     }
 
-    // Näytetään käyttäjän viesti heti
-    setMessages((prev) => [...prev, { sender: 'user', text: trimmed }]);
+    // Näytetään käyttäjän viesti heti (sisältää tiedoston jos liitetty)
+    setMessages((prev) => [...prev, { sender: 'user', text: messageText }]);
     setInput('');
+    setAttachedFile(null);   // tyhjennetään liite lähetyksen jälkeen
     setSending(true);
 
     try {
-      const data = await sendMessage(convId, trimmed);
+      const data = await sendMessage(convId, messageText);
       setMessages((prev) => [...prev, { sender: 'watcher', text: data.reply }]);
       await loadConversations();
     } catch (err) {
@@ -314,28 +361,63 @@ function Chat({ user, onLogout }) {
           <div ref={messagesEndRef}></div>
         </main>
 
-        <footer className="composer">
-          <input
-            type="text"
-            placeholder="Kysy jotain..."
-            className="composer-input"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            disabled={sending}
-            ref={inputRef}
-          />
-          <button
-            className={`composer-mic ${listening ? 'is-listening' : ''}`}
-            onClick={toggleListening}
-            disabled={sending}
-            title="Puhu"
-          >
-            🎤
-          </button>
-          <button className="composer-send" onClick={handleSend} disabled={sending}>
-            Lähetä
-          </button>
+        <footer className="composer-wrap">
+          {/* Liitetyn tiedoston näkymä (jos tiedosto valittu) */}
+          {attachedFile && (
+            <div className="attached-file">
+              <span className="attached-file-name">📄 {attachedFile.name}</span>
+              <button
+                className="attached-file-remove"
+                onClick={removeAttachedFile}
+                title="Poista liite"
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+          <div className="composer">
+            {/* Piilotettu tiedostovalitsin */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              accept=".txt,.md,.js,.jsx,.ts,.tsx,.py,.java,.c,.cpp,.cs,.html,.css,.json,.xml,.csv"
+              style={{ display: 'none' }}
+            />
+
+            {/* Liite-nappi */}
+            <button
+              className="composer-attach"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={sending}
+              title="Liitä tiedosto"
+            >
+              📎
+            </button>
+
+            <input
+              type="text"
+              placeholder="Kysy jotain..."
+              className="composer-input"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+              disabled={sending}
+              ref={inputRef}
+            />
+            <button
+              className={`composer-mic ${listening ? 'is-listening' : ''}`}
+              onClick={toggleListening}
+              disabled={sending}
+              title="Puhu"
+            >
+              🎤
+            </button>
+            <button className="composer-send" onClick={handleSend} disabled={sending}>
+              Lähetä
+            </button>
+          </div>
         </footer>
 
         {showDelete && (
