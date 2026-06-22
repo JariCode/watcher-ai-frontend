@@ -713,6 +713,38 @@
   color: var(--accent-glow);
 }
 
+/* Mikrofoni-nappi */
+.composer-mic {
+  padding: 12px 16px;
+  font-size: 16px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  cursor: pointer;
+}
+
+.composer-mic:hover {
+  border-color: var(--accent);
+}
+
+/* Kun mikrofoni kuuntelee — magenta hehku ja pulssi */
+.composer-mic.is-listening {
+  border-color: var(--accent);
+  background: var(--accent);
+  animation: mic-pulse 1.2s ease-in-out infinite;
+}
+
+/* Pulssianimaatio kuuntelun ajaksi */
+@keyframes mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent); }
+  50% { box-shadow: 0 0 12px 4px var(--accent-glow); }
+}
+
+.composer-mic:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 
 /* --- MOBIILI: enintään 768px leveä --- */
 @media (max-width: 768px) {

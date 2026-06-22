@@ -33,6 +33,9 @@ function Chat({ user, onLogout }) {
   // Odottaako Watcherin vastausta
   const [sending, setSending] = useState(false);
 
+  // Kuunteleeko mikrofoni juuri nyt
+  const [listening, setListening] = useState(false);
+
   // Tilin poisto -ikkuna ja sivupalkin tila (mobiili)
   const [showDelete, setShowDelete] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -45,6 +48,9 @@ function Chat({ user, onLogout }) {
 
   // Viittaus syöttökenttään (automaattista fokusta varten)
   const inputRef = useRef(null);
+
+  // Viittaus puheentunnistukseen (jotta voidaan pysäyttää)
+  const recognitionRef = useRef(null);
 
   // Seurataan hiirtä, jotta silmät katsovat kursoria
   useEffect(() => {
@@ -139,6 +145,54 @@ function Chat({ user, onLogout }) {
     } catch (err) {
       console.error('Keskustelun poisto epäonnistui:', err.message);
     }
+  }
+
+  // Aloittaa tai lopettaa mikrofonikuuntelun
+  function toggleListening() {
+    // Jos jo kuunnellaan, lopetetaan
+    if (listening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+
+    // Tarkistetaan tukeeko selain puheentunnistusta
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert('Selaimesi ei tue puheentunnistusta.');
+      return;
+    }
+
+    // Luodaan tunnistin
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'fi-FI';          // suomi
+    recognition.interimResults = false;   // vain valmis tulos
+    recognition.continuous = false;       // lopettaa kun lakkaa puhumasta
+
+    // Kun puhe on tunnistettu, lisätään teksti syöttökenttään
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      // Lisätään tunnistettu teksti kentän nykyisen sisällön perään
+      setInput((prev) => (prev ? prev + ' ' + transcript : transcript));
+      // Palautetaan fokus kenttään, jotta voi painaa heti Enteriä
+      inputRef.current?.focus();
+    };
+
+    // Kun kuuntelu päättyy (syystä riippumatta)
+    recognition.onend = () => {
+      setListening(false);
+    };
+
+    // Virhetilanne
+    recognition.onerror = () => {
+      setListening(false);
+    };
+
+    // Tallennetaan viite ja käynnistetään
+    recognitionRef.current = recognition;
+    recognition.start();
+    setListening(true);
   }
 
   // Lähettää viestin Watcherille
@@ -271,6 +325,14 @@ function Chat({ user, onLogout }) {
             disabled={sending}
             ref={inputRef}
           />
+          <button
+            className={`composer-mic ${listening ? 'is-listening' : ''}`}
+            onClick={toggleListening}
+            disabled={sending}
+            title="Puhu"
+          >
+            🎤
+          </button>
           <button className="composer-send" onClick={handleSend} disabled={sending}>
             Lähetä
           </button>
