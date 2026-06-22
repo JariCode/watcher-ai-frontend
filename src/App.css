@@ -917,7 +917,17 @@
 
   /* Composer tiiviimmäksi */
   .composer {
-    padding: 12px;
+    padding: 12px 10px;
+  }
+
+  .composer button {
+    padding: 10px 14px;
+    font-size: 12px;
+  }
+
+  .composer-input {
+    padding: 10px 14px;
+    font-size: 12px;
   }
 
   .composer-send {
