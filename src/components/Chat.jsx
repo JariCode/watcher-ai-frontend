@@ -12,6 +12,7 @@ import {
 import DeleteAccount from './DeleteAccount'
 import Sidebar from './Sidebar'
 import AdminPanel from './AdminPanel'
+import mammoth from 'mammoth'
 
 function Chat({ user, onLogout }) {
   // Keskustelun id URL:sta (/chat/:id). Tyhjällä etusivulla undefined.
@@ -202,28 +203,50 @@ function Chat({ user, onLogout }) {
   }
 
   // Käsittelee valitun tiedoston: lukee sen tekstiksi
-  function handleFileSelect(e) {
+  async function handleFileSelect(e) {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Rajataan koko (esim. 100 kt) — tekstitiedostot ovat pieniä
-    if (file.size > 100 * 1024) {
-      alert('Tiedosto on liian suuri (max 100 kt).');
+    // Rajataan koko (esim. 500 kt — Word-tiedostot voivat olla isompia)
+    if (file.size > 500 * 1024) {
+      alert('Tiedosto on liian suuri (max 500 kt).');
+      e.target.value = '';
       return;
     }
 
-    // Luetaan tiedoston sisältö tekstinä
-    const reader = new FileReader();
-    reader.onload = (event) => {
+    // Tarkistetaan onko tiedosto Word-dokumentti (.docx)
+    const isWord =
+      file.name.toLowerCase().endsWith('.docx') ||
+      file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+    try {
+      let content;
+
+      if (isWord) {
+        // Word: puretaan teksti mammothilla (lukee tiedoston ArrayBufferina)
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        content = result.value;   // pelkkä teksti, ilman muotoilua
+      } else {
+        // Tavallinen teksti/koodi: luetaan suoraan tekstinä
+        content = await file.text();
+      }
+
+      // Jos sisältö jäi tyhjäksi (esim. tyhjä Word-dokumentti)
+      if (!content || !content.trim()) {
+        alert('Tiedostosta ei löytynyt tekstiä.');
+        e.target.value = '';
+        return;
+      }
+
       setAttachedFile({
         name: file.name,
-        content: event.target.result,
+        content: content,
       });
-    };
-    reader.onerror = () => {
+    } catch (err) {
+      console.error('Tiedoston luku epäonnistui:', err.message);
       alert('Tiedoston luku epäonnistui.');
-    };
-    reader.readAsText(file);
+    }
 
     // Tyhjennetään input, jotta saman tiedoston voi valita uudelleen
     e.target.value = '';
@@ -382,7 +405,7 @@ function Chat({ user, onLogout }) {
               type="file"
               ref={fileInputRef}
               onChange={handleFileSelect}
-              accept=".txt,.md,.js,.jsx,.ts,.tsx,.py,.java,.c,.cpp,.cs,.html,.css,.json,.xml,.csv"
+              accept=".txt,.md,.js,.jsx,.ts,.tsx,.py,.java,.c,.cpp,.cs,.html,.css,.json,.xml,.csv,.docx"
               style={{ display: 'none' }}
             />
 
