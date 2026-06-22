@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import './App.css'
 import { getMe } from './api'
 import Login from './components/Login'
@@ -9,12 +9,23 @@ function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const navigate = useNavigate();
+  const location = useLocation();
+
   useEffect(() => {
     getMe()
       .then((data) => setUser(data))
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
   }, []);
+
+  // Kun käyttäjä ei ole kirjautunut mutta URL ei ole juuressa, nollataan se.
+  // Kattaa kaikki uloskirjautumistavat (uloskirjautuminen, tilin poisto, istunnon vanheneminen).
+  useEffect(() => {
+    if (!loading && !user && location.pathname !== '/') {
+      navigate('/', { replace: true });
+    }
+  }, [user, loading, location.pathname, navigate]);
 
   if (loading) {
     return <div className="loading">Watcher herää...</div>;
