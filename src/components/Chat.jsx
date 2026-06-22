@@ -361,6 +361,17 @@ function Chat({ user, onLogout }) {
     setAttachedFile(null);
   }
 
+  // Lataa kuvan käyttäjän koneelle
+  function downloadImage(dataUrl) {
+    // Luodaan väliaikainen linkki ja klikataan sitä
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = `watcher-kuva-${Date.now()}.png`;   // tiedostonimi aikaleimalla
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
   // Lähettää viestin Watcherille
   async function handleSend() {
     const trimmed = input.trim();
@@ -400,7 +411,7 @@ function Chat({ user, onLogout }) {
 
     try {
       const data = await sendMessage(convId, messageText, messageImage);
-      setMessages((prev) => [...prev, { sender: 'watcher', text: data.reply, image: '' }]);
+      setMessages((prev) => [...prev, { sender: 'watcher', text: data.reply, image: data.image || '' }]);
       await loadConversations();
     } catch (err) {
       setMessages((prev) => [
@@ -495,7 +506,16 @@ function Chat({ user, onLogout }) {
             >
               <div>
                 {msg.image && (
-                  <img src={msg.image} alt="liite" className="message-image" />
+                  <div className="message-image-wrap">
+                    <img src={msg.image} alt="liite" className="message-image" />
+                    <button
+                      className="message-image-download"
+                      onClick={() => downloadImage(msg.image)}
+                      title="Lataa kuva"
+                    >
+                      Lataa kuva
+                    </button>
+                  </div>
                 )}
                 <p>{msg.text}</p>
               </div>

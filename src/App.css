@@ -829,6 +829,31 @@
   flex-shrink: 0;
 }
 
+/* Kuvan ja latausnapin kääre viestissä */
+.message-image-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+/* Lataa kuva -nappi */
+.message-image-download {
+  align-self: flex-start;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.message-image-download:hover {
+  border-color: var(--accent);
+  color: var(--accent-glow);
+}
+
 /* Raahausnäkymä — peittää chat-alueen kun tiedostoa raahataan */
 .drop-overlay {
   position: absolute;
