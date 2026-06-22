@@ -46,6 +46,9 @@ function Chat({ user, onLogout }) {
   // Kuunteleeko mikrofoni juuri nyt
   const [listening, setListening] = useState(false);
 
+  // Onko tiedostoa raahaamassa alueen päälle (näyttöä varten)
+  const [dragging, setDragging] = useState(false);
+
   // Tilin poisto -ikkuna ja sivupalkin tila (mobiili)
   const [showDelete, setShowDelete] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -213,15 +216,20 @@ function Chat({ user, onLogout }) {
     setListening(true);
   }
 
-  // Käsittelee valitun tiedoston: lukee sen tekstiksi tai kuvan base64:ksi
-  async function handleFileSelect(e) {
+  // Tiedoston valinta input-kentästä → luetaan yhteisellä processFile-funktiolla
+  function handleFileSelect(e) {
     const file = e.target.files[0];
+    if (file) processFile(file);
+    e.target.value = '';   // jotta saman tiedoston voi valita uudelleen
+  }
+
+  // Lukee tiedoston tekstiksi tai kuvan base64:ksi (yhteinen valinnalle ja raahaukselle)
+  async function processFile(file) {
     if (!file) return;
 
     // Rajataan koko (5 Mt — riittää PDF:ille, Office-tiedostoille ja kuville)
     if (file.size > 5 * 1024 * 1024) {
       alert('Tiedosto on liian suuri (max 5 Mt).');
-      e.target.value = '';
       return;
     }
 
@@ -260,7 +268,6 @@ function Chat({ user, onLogout }) {
           content: '',          // kuvalla ei ole tekstisisältöä
           image: dataUrl,       // base64 data-URL
         });
-        e.target.value = '';
         return;   // kuva käsitelty, ei jatketa tekstihaaroihin
       }
 
@@ -304,7 +311,6 @@ function Chat({ user, onLogout }) {
         // Jos teksti jäi tyhjäksi, PDF on todennäköisesti skannattu (kuva, ei tekstiä)
         if (!content || !content.trim()) {
           alert('PDF:stä ei löytynyt tekstiä. Se voi olla skannattu kuva-PDF.');
-          e.target.value = '';
           return;
         }
       } else {
@@ -315,7 +321,6 @@ function Chat({ user, onLogout }) {
       // Jos sisältö jäi tyhjäksi (esim. tyhjä Word-dokumentti)
       if (!content || !content.trim()) {
         alert('Tiedostosta ei löytynyt tekstiä.');
-        e.target.value = '';
         return;
       }
 
@@ -328,9 +333,27 @@ function Chat({ user, onLogout }) {
       console.error('Tiedoston luku epäonnistui:', err.message);
       alert('Tiedoston luku epäonnistui.');
     }
+  }
 
-    // Tyhjennetään input, jotta saman tiedoston voi valita uudelleen
-    e.target.value = '';
+  // Raahaus alueen päälle: estetään selaimen oletus ja näytetään raahaustila
+  function handleDragOver(e) {
+    e.preventDefault();
+    if (!dragging) setDragging(true);
+  }
+
+  // Raahaus poistuu alueelta
+  function handleDragLeave(e) {
+    e.preventDefault();
+    // Vain jos hiiri poistuu koko alueelta (ei lapsielementtien välillä)
+    if (e.currentTarget === e.target) setDragging(false);
+  }
+
+  // Tiedosto pudotetaan: luetaan ensimmäinen tiedosto
+  function handleDrop(e) {
+    e.preventDefault();
+    setDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processFile(file);
   }
 
   // Poistaa liitetyn tiedoston
@@ -421,8 +444,20 @@ function Chat({ user, onLogout }) {
         />
       </div>
 
-      <div className="app">
+      <div
+        className="app"
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
         <img src={watcherImg} alt="" className="chat-bg" />
+
+        {/* Raahausnäkymä — näkyy kun tiedostoa raahataan alueen päälle */}
+        {dragging && (
+          <div className="drop-overlay">
+            <p>Pudota tiedosto tähän</p>
+          </div>
+        )}
 
         <button className="menu-btn" onClick={() => setSidebarOpen(true)}>
           ☰

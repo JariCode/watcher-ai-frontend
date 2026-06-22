@@ -829,6 +829,26 @@
   flex-shrink: 0;
 }
 
+/* Raahausnäkymä — peittää chat-alueen kun tiedostoa raahataan */
+.drop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 6, 18, 0.85);
+  border: 2px dashed var(--accent);
+  border-radius: 12px;
+  pointer-events: none;
+}
+
+.drop-overlay p {
+  color: var(--accent-glow);
+  font-size: 18px;
+  font-weight: 600;
+}
+
 
 /* --- MOBIILI: enintään 768px leveä --- */
 @media (max-width: 768px) {
