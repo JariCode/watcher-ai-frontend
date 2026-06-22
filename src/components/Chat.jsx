@@ -13,6 +13,7 @@ import DeleteAccount from './DeleteAccount'
 import Sidebar from './Sidebar'
 import AdminPanel from './AdminPanel'
 import mammoth from 'mammoth'
+import * as XLSX from 'xlsx'
 
 function Chat({ user, onLogout }) {
   // Keskustelun id URL:sta (/chat/:id). Tyhjällä etusivulla undefined.
@@ -214,10 +215,15 @@ function Chat({ user, onLogout }) {
       return;
     }
 
-    // Tarkistetaan onko tiedosto Word-dokumentti (.docx)
+  // Tarkistetaan onko tiedosto Word-dokumentti (.docx)
     const isWord =
       file.name.toLowerCase().endsWith('.docx') ||
       file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+    // Tarkistetaan onko tiedosto Excel-taulukko (.xlsx tai .xls)
+    const isExcel =
+      file.name.toLowerCase().endsWith('.xlsx') ||
+      file.name.toLowerCase().endsWith('.xls');
 
     try {
       let content;
@@ -227,6 +233,18 @@ function Chat({ user, onLogout }) {
         const arrayBuffer = await file.arrayBuffer();
         const result = await mammoth.extractRawText({ arrayBuffer });
         content = result.value;   // pelkkä teksti, ilman muotoilua
+      } else if (isExcel) {
+        // Excel: luetaan taulukko ja muunnetaan jokainen välilehti CSV-tekstiksi
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer);
+        // Käydään läpi kaikki välilehdet (sheets)
+        const parts = workbook.SheetNames.map((name) => {
+          const sheet = workbook.Sheets[name];
+          const csv = XLSX.utils.sheet_to_csv(sheet);
+          // Otsikoidaan jokainen välilehti nimellään
+          return `--- Välilehti: ${name} ---\n${csv}`;
+        });
+        content = parts.join('\n\n');
       } else {
         // Tavallinen teksti/koodi: luetaan suoraan tekstinä
         content = await file.text();
@@ -405,7 +423,7 @@ function Chat({ user, onLogout }) {
               type="file"
               ref={fileInputRef}
               onChange={handleFileSelect}
-              accept=".txt,.md,.js,.jsx,.ts,.tsx,.py,.java,.c,.cpp,.cs,.html,.css,.json,.xml,.csv,.docx"
+              accept=".txt,.md,.js,.jsx,.ts,.tsx,.py,.java,.c,.cpp,.cs,.html,.css,.json,.xml,.csv,.docx,.xlsx,.xls,text/*,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/msword"
               style={{ display: 'none' }}
             />
 
