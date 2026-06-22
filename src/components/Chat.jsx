@@ -68,6 +68,10 @@ function Chat({ user, onLogout }) {
   // Viittaus piilotettuun tiedosto-inputtiin
   const fileInputRef = useRef(null);
 
+  // Muistaa keskustelun id:n jonka juuri loimme, jotta openConversation
+  // ei ylikirjoita näytöllä olevia viestejä heti luonnin jälkeen
+  const justCreatedId = useRef(null);
+
   // Seurataan hiirtä, jotta silmät katsovat kursoria
   useEffect(() => {
     function handleMouseMove(e) {
@@ -95,6 +99,12 @@ function Chat({ user, onLogout }) {
   // Jos id puuttuu (etusivu /), näytetään tyhjä näkymä.
   useEffect(() => {
     if (id) {
+      // Jos tämä id luotiin juuri (ensimmäinen viesti), ei haeta uudelleen
+      // backendista, koska viestit ovat jo näytöllä. Muuten ne vilahtaisivat pois.
+      if (justCreatedId.current === id) {
+        justCreatedId.current = null;   // nollataan, jotta jatkossa haku toimii normaalisti
+        return;
+      }
       openConversation(id);
     } else {
       setMessages([]);
@@ -393,7 +403,8 @@ function Chat({ user, onLogout }) {
       try {
         const conv = await createConversation();
         convId = conv._id;
-        navigate(`/chat/${convId}`);   // URL vaihtuu uuteen keskusteluun
+        justCreatedId.current = convId;   // merkitään juuri luoduksi, ettei openConversation hae sitä
+        navigate(`/chat/${convId}`);      // URL vaihtuu uuteen keskusteluun
       } catch (err) {
         console.error('Keskustelun luonti epäonnistui:', err.message);
         return;
@@ -493,7 +504,7 @@ function Chat({ user, onLogout }) {
         </header>
 
         <main className="messages">
-          {messages.length === 0 && (
+          {!id && messages.length === 0 && !sending && (
             <div className="message message-watcher">
               <p>Näen sinut. Mitä etsit pimeydestä?</p>
             </div>
