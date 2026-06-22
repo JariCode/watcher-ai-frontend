@@ -82,11 +82,11 @@ export function deleteConversation(id) {
   return request(`/conversations/${id}`, { method: 'DELETE' });
 }
 
-// Lähetä viesti Watcherille keskustelussa
-export function sendMessage(id, text) {
+// Lähetä viesti Watcherille keskustelussa (teksti ja/tai kuva)
+export function sendMessage(id, text, image) {
   return request(`/conversations/${id}/messages`, {
     method: 'POST',
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ text, image }),
   });
 }
 

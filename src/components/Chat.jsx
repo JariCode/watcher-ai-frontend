@@ -37,7 +37,7 @@ function Chat({ user, onLogout }) {
   // Syöttökenttä
   const [input, setInput] = useState('');
 
-  // Liitetyn tekstitiedoston sisältö ja nimi (tai null)
+  // Liitetyn tiedoston tiedot (teksti tai kuva, tai null)
   const [attachedFile, setAttachedFile] = useState(null);
 
   // Odottaako Watcherin vastausta
@@ -124,7 +124,12 @@ function Chat({ user, onLogout }) {
   async function openConversation(convId) {
     try {
       const conv = await getConversation(convId);
-      setMessages(conv.messages.map((m) => ({ sender: m.role, text: m.text })));
+      // Muunnetaan backendin viestit frontendin muotoon (mukaan myös mahdollinen kuva)
+      setMessages(conv.messages.map((m) => ({
+        sender: m.role,
+        text: m.text,
+        image: m.image || '',
+      })));
       setSidebarOpen(false);
     } catch (err) {
       console.error('Keskustelun avaus epäonnistui:', err.message);
@@ -208,12 +213,12 @@ function Chat({ user, onLogout }) {
     setListening(true);
   }
 
-  // Käsittelee valitun tiedoston: lukee sen tekstiksi
+  // Käsittelee valitun tiedoston: lukee sen tekstiksi tai kuvan base64:ksi
   async function handleFileSelect(e) {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Rajataan koko (5 Mt — riittää PDF:ille ja Office-tiedostoille)
+    // Rajataan koko (5 Mt — riittää PDF:ille, Office-tiedostoille ja kuville)
     if (file.size > 5 * 1024 * 1024) {
       alert('Tiedosto on liian suuri (max 5 Mt).');
       e.target.value = '';
@@ -235,8 +240,29 @@ function Chat({ user, onLogout }) {
       file.name.toLowerCase().endsWith('.pdf') ||
       file.type === 'application/pdf';
 
+    // Tarkistetaan onko tiedosto kuva
+    const isImage = file.type.startsWith('image/');
+
     try {
       let content;
+
+      // Kuva luetaan base64-muotoon (data-URL), ei tekstiksi
+      if (isImage) {
+        const dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(new Error('Kuvan luku epäonnistui.'));
+          reader.readAsDataURL(file);
+        });
+        // Tallennetaan kuva erikseen (ei content-tekstiin)
+        setAttachedFile({
+          name: file.name,
+          content: '',          // kuvalla ei ole tekstisisältöä
+          image: dataUrl,       // base64 data-URL
+        });
+        e.target.value = '';
+        return;   // kuva käsitelty, ei jatketa tekstihaaroihin
+      }
 
       if (isWord) {
         // Word: puretaan teksti mammothilla (lukee tiedoston ArrayBufferina)
@@ -296,6 +322,7 @@ function Chat({ user, onLogout }) {
       setAttachedFile({
         name: file.name,
         content: content,
+        image: '',          // tekstitiedostolla ei kuvaa
       });
     } catch (err) {
       console.error('Tiedoston luku epäonnistui:', err.message);
@@ -314,14 +341,17 @@ function Chat({ user, onLogout }) {
   // Lähettää viestin Watcherille
   async function handleSend() {
     const trimmed = input.trim();
-    // Lähetys vaatii joko tekstin tai liitetyn tiedoston
+    // Lähetys vaatii joko tekstin tai liitetyn tiedoston/kuvan
     if ((!trimmed && !attachedFile) || sending) return;
 
-    // Rakennetaan lähetettävä teksti: käyttäjän viesti + mahdollinen tiedoston sisältö
+    // Rakennetaan lähetettävä teksti: käyttäjän viesti + mahdollinen tekstitiedoston sisältö
     let messageText = trimmed;
-    if (attachedFile) {
+    if (attachedFile && attachedFile.content) {
       messageText += `\n\n[Tiedosto: ${attachedFile.name}]\n${attachedFile.content}`;
     }
+
+    // Mahdollinen kuva (base64 data-URL)
+    const messageImage = attachedFile?.image || '';
 
     // Jos ei ole avointa keskustelua (etusivu), luodaan ensin uusi ja siirrytään siihen
     let convId = id;
@@ -336,20 +366,23 @@ function Chat({ user, onLogout }) {
       }
     }
 
-    // Näytetään käyttäjän viesti heti (sisältää tiedoston jos liitetty)
-    setMessages((prev) => [...prev, { sender: 'user', text: messageText }]);
+    // Näytetään käyttäjän viesti heti (sisältää tiedoston/kuvan jos liitetty)
+    setMessages((prev) => [
+      ...prev,
+      { sender: 'user', text: messageText || '(kuva)', image: messageImage },
+    ]);
     setInput('');
     setAttachedFile(null);   // tyhjennetään liite lähetyksen jälkeen
     setSending(true);
 
     try {
-      const data = await sendMessage(convId, messageText);
-      setMessages((prev) => [...prev, { sender: 'watcher', text: data.reply }]);
+      const data = await sendMessage(convId, messageText, messageImage);
+      setMessages((prev) => [...prev, { sender: 'watcher', text: data.reply, image: '' }]);
       await loadConversations();
     } catch (err) {
       setMessages((prev) => [
         ...prev,
-        { sender: 'watcher', text: 'Watcher vaikenee. Yhteys katkesi.' },
+        { sender: 'watcher', text: 'Watcher vaikenee. Yhteys katkesi.', image: '' },
       ]);
       console.error('Viestin lähetys epäonnistui:', err.message);
     } finally {
@@ -425,7 +458,12 @@ function Chat({ user, onLogout }) {
               key={i}
               className={`message message-${msg.sender === 'user' ? 'user' : 'watcher'}`}
             >
-              <p>{msg.text}</p>
+              <div>
+                {msg.image && (
+                  <img src={msg.image} alt="liite" className="message-image" />
+                )}
+                <p>{msg.text}</p>
+              </div>
             </div>
           ))}
 
@@ -439,10 +477,15 @@ function Chat({ user, onLogout }) {
         </main>
 
         <footer className="composer-wrap">
-          {/* Liitetyn tiedoston näkymä (jos tiedosto valittu) */}
+          {/* Liitetyn tiedoston/kuvan näkymä (jos jotain valittu) */}
           {attachedFile && (
             <div className="attached-file">
-              <span className="attached-file-name">📄 {attachedFile.name}</span>
+              {attachedFile.image ? (
+                <img src={attachedFile.image} alt="" className="attached-thumb" />
+              ) : (
+                <span className="attached-file-icon">📄</span>
+              )}
+              <span className="attached-file-name">{attachedFile.name}</span>
               <button
                 className="attached-file-remove"
                 onClick={removeAttachedFile}
@@ -459,7 +502,7 @@ function Chat({ user, onLogout }) {
               type="file"
               ref={fileInputRef}
               onChange={handleFileSelect}
-              accept=".txt,.md,.js,.jsx,.ts,.tsx,.py,.java,.c,.cpp,.cs,.html,.css,.json,.xml,.csv,.docx,.xlsx,.xls,.pdf,text/*,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/msword,application/pdf"
+              accept=".txt,.md,.js,.jsx,.ts,.tsx,.py,.java,.c,.cpp,.cs,.html,.css,.json,.xml,.csv,.docx,.xlsx,.xls,.pdf,text/*,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/msword,application/pdf,image/*"
               style={{ display: 'none' }}
             />
 
