@@ -92,6 +92,15 @@ export function sendMessage(id, text, image) {
   });
 }
 
+// Muunna puhe tekstiksi (Whisper). Ottaa äänileikkeen base64-muodossa
+// (data:audio/webm;base64,...) ja palauttaa tunnistetun tekstin.
+export function transcribeAudio(audio) {
+  return request('/transcribe', {
+    method: 'POST',
+    body: JSON.stringify({ audio }),
+  });
+}
+
 // --- ADMIN ---
 
 // Hae kaikki käyttäjät (vain admin)

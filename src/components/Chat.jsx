@@ -8,6 +8,7 @@ import {
   createConversation,
   deleteConversation,
   sendMessage,
+  transcribeAudio,
 } from '../api'
 import DeleteAccount from './DeleteAccount'
 import Sidebar from './Sidebar'
@@ -43,8 +44,11 @@ function Chat({ user, onLogout }) {
   // Odottaako Watcherin vastausta
   const [sending, setSending] = useState(false);
 
-  // Kuunteleeko mikrofoni juuri nyt
+  // Nauhoittaako mikrofoni juuri nyt
   const [listening, setListening] = useState(false);
+
+  // Käännetäänkö puhetta tekstiksi juuri nyt (Whisper-kutsu kesken)
+  const [transcribing, setTranscribing] = useState(false);
 
   // Onko tiedostoa raahaamassa alueen päälle (näyttöä varten)
   const [dragging, setDragging] = useState(false);
@@ -62,8 +66,9 @@ function Chat({ user, onLogout }) {
   // Viittaus syöttökenttään (automaattista fokusta varten)
   const inputRef = useRef(null);
 
-  // Viittaus puheentunnistukseen (jotta voidaan pysäyttää)
-  const recognitionRef = useRef(null);
+  // Viittaukset nauhoitukseen: itse nauhoitin ja kerätyt äänipalat
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
 
   // Viittaus piilotettuun tiedosto-inputtiin
   const fileInputRef = useRef(null);
@@ -178,52 +183,105 @@ function Chat({ user, onLogout }) {
     }
   }
 
-  // Aloittaa tai lopettaa mikrofonikuuntelun
-  function toggleListening() {
-    // Jos jo kuunnellaan, lopetetaan
+  // Aloittaa tai lopettaa mikrofonin nauhoituksen.
+  // Nauhoittaa äänen selaimessa (MediaRecorder, toimii kaikissa selaimissa) ja
+  // lähettää sen backendin kautta Whisperille tekstiksi muutettavaksi.
+  async function toggleListening() {
+    // Jos nauhoitetaan jo, lopetetaan. onstop-käsittelijä hoitaa loput.
     if (listening) {
-      recognitionRef.current?.stop();
+      mediaRecorderRef.current?.stop();
       return;
     }
 
-    // Tarkistetaan tukeeko selain puheentunnistusta
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      alert('Selaimesi ei tue puheentunnistusta.');
+    // Tarkistetaan että selain tukee mikrofonin käyttöä
+    if (!navigator.mediaDevices || !window.MediaRecorder) {
+      alert('Selaimesi ei tue äänen nauhoitusta.');
       return;
     }
 
-    // Luodaan tunnistin
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'fi-FI';          // suomi
-    recognition.interimResults = false;   // vain valmis tulos
-    recognition.continuous = false;       // lopettaa kun lakkaa puhumasta
+    try {
+      // Pyydetään lupa mikrofoniin paremmilla laatuasetuksilla.
+      // Kohinanpoisto ja kaikuvaimennus parantavat tunnistustarkkuutta.
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
 
-    // Kun puhe on tunnistettu, lisätään teksti syöttökenttään
-    recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      // Lisätään tunnistettu teksti kentän nykyisen sisällön perään
-      setInput((prev) => (prev ? prev + ' ' + transcript : transcript));
-      // Palautetaan fokus kenttään, jotta voi painaa heti Enteriä
-      inputRef.current?.focus();
-    };
+      // Valitaan nauhoitusmuoto: webm/opus jos selain tukee (Chrome ja Firefox
+      // tukevat molemmat). Yhtenäinen muoto parantaa Whisperin tunnistusta.
+      let recorderOptions = {};
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        recorderOptions = { mimeType: 'audio/webm;codecs=opus' };
+      } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+        recorderOptions = { mimeType: 'audio/webm' };
+      }
 
-    // Kun kuuntelu päättyy (syystä riippumatta)
-    recognition.onend = () => {
+      // Luodaan nauhoitin valitulla muodolla ja nollataan kerätyt äänipalat
+      const recorder = new MediaRecorder(stream, recorderOptions);
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+
+      // Kerätään äänidata palasina sitä mukaa kun sitä tulee
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+
+      // Kun nauhoitus loppuu: kootaan ääni, muunnetaan base64:ksi ja lähetetään
+      recorder.onstop = async () => {
+        // Suljetaan mikrofoni (sammuttaa selaimen nauhoitusmerkin)
+        stream.getTracks().forEach((track) => track.stop());
+        setListening(false);
+
+        // Kootaan kerätyt palat yhdeksi äänitiedostoksi
+        const audioBlob = new Blob(audioChunksRef.current, { type: recorder.mimeType });
+
+        // Jos ääntä ei kertynyt (esim. heti lopetettu), ei tehdä mitään
+        if (audioBlob.size === 0) return;
+
+        setTranscribing(true);
+        try {
+          // Muunnetaan ääni base64 data-URL:ksi (sama tapa kuin kuvilla)
+          const dataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error('Äänen luku epäonnistui.'));
+            reader.readAsDataURL(audioBlob);
+          });
+
+          // Lähetetään backendille, joka palauttaa tunnistetun tekstin
+          const data = await transcribeAudio(dataUrl);
+
+          // Lisätään tunnistettu teksti syöttökentän nykyisen sisällön perään
+          if (data.text && data.text.trim()) {
+            setInput((prev) => (prev ? prev + ' ' + data.text.trim() : data.text.trim()));
+          }
+          inputRef.current?.focus();
+        } catch (err) {
+          console.error('Puheentunnistus epäonnistui:', err.message);
+          alert('Puheentunnistus epäonnistui. Yritä uudelleen.');
+        } finally {
+          setTranscribing(false);
+        }
+      };
+
+      // Käynnistetään nauhoitus
+      recorder.start();
+      setListening(true);
+    } catch (err) {
+      // Yleisin syy: käyttäjä ei antanut lupaa mikrofoniin
+      console.error('Mikrofonin avaus epäonnistui:', err.message);
       setListening(false);
-    };
-
-    // Virhetilanne
-    recognition.onerror = () => {
-      setListening(false);
-    };
-
-    // Tallennetaan viite ja käynnistetään
-    recognitionRef.current = recognition;
-    recognition.start();
-    setListening(true);
+      if (err.name === 'NotAllowedError') {
+        alert('Mikrofonin käyttö estettiin. Salli mikrofoni selaimen asetuksista.');
+      } else {
+        alert('Mikrofonia ei voitu avata.');
+      }
+    }
   }
 
   // Tiedoston valinta input-kentästä → luetaan yhteisellä processFile-funktiolla
@@ -595,10 +653,10 @@ function Chat({ user, onLogout }) {
             <button
               className={`composer-mic ${listening ? 'is-listening' : ''}`}
               onClick={toggleListening}
-              disabled={sending}
+              disabled={sending || transcribing}
               title="Puhu"
             >
-              🎤
+              {transcribing ? '...' : '🎤'}
             </button>
             <button className="composer-send" onClick={handleSend} disabled={sending}>
               Lähetä
