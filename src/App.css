@@ -3,6 +3,7 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;       /* dvh ottaa iOS:n selainpalkit huomioon, ei venytä pystyyn */
   flex: 1;              /* täyttää sivupalkin viereisen tilan */
   max-width: 768px;
   margin: 0 auto;
@@ -169,6 +170,7 @@
 .login-page {
   position: relative;
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -288,6 +290,7 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
+  min-height: 100dvh;
   color: var(--accent-glow);
   font-size: 18px;
 }
@@ -431,6 +434,7 @@
 .layout {
   display: flex;
   height: 100vh;
+  height: 100dvh;       /* dvh ottaa iOS:n selainpalkit huomioon, ei venytä pystyyn */
 }
 
 /* Sivupalkki vasemmalla */
@@ -583,6 +587,7 @@
 .sidebar-wrap {
   flex-shrink: 0;
   height: 100vh;
+  height: 100dvh;       /* dvh ottaa iOS:n selainpalkit huomioon */
 }
 
 /* Tumma peite — vain mobiilissa */
@@ -887,6 +892,7 @@
     top: 0;
     left: 0;
     height: 100vh;
+    height: 100dvh;
     z-index: 20;
     transform: translateX(-100%);          /* piilossa vasemmalla */
     transition: transform 0.25s ease;

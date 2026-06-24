@@ -21,4 +21,5 @@ body {
   color: var(--text);
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
   min-height: 100vh;
+  touch-action: pan-x pan-y;
 }
