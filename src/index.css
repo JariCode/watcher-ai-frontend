@@ -16,10 +16,19 @@
   box-sizing: border-box;
 }
 
+/* html ja body: estetään venyminen ja nipistyszoomaus mobiilissa */
+html, body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;            /* ei vaakavieritystä, ei veny sivusuunnassa */
+  overscroll-behavior: none;     /* estää ylivierityksen "kumimaisen" venymisen */
+  touch-action: pan-x pan-y;     /* sallii vierityksen mutta estää nipistyszoomin */
+}
+
 body {
   background: var(--bg);
   color: var(--text);
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
   min-height: 100vh;
-  touch-action: pan-x pan-y;
+  min-height: 100dvh;            /* dvh ottaa iOS:n selainpalkit huomioon, ei venytä pystyyn */
 }
