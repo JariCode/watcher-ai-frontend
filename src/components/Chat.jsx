@@ -577,13 +577,15 @@ function Chat({ user, onLogout }) {
                 {msg.image && (
                   <div className="message-image-wrap">
                     <img src={msg.image} alt="liite" className="message-image" />
-                    <button
-                      className="message-image-download"
-                      onClick={() => downloadImage(msg.image)}
-                      title="Lataa kuva"
-                    >
-                      Lataa kuva
-                    </button>
+                    {msg.sender === 'watcher' && (
+                      <button
+                        className="message-image-download"
+                        onClick={() => downloadImage(msg.image)}
+                        title="Lataa kuva"
+                      >
+                        Lataa kuva
+                      </button>
+                    )}
                   </div>
                 )}
                 <p>{msg.text}</p>
