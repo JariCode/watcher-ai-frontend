@@ -922,9 +922,7 @@
   }
 
   /* Chat täyttää koko leveyden, otsikko siirtyy napin tieltä */
-  .header {
-    padding-left: 64px;   /* tilaa hampurilaisnapille */
-  }
+
 }
 
 /* --- PIENI MOBIILI: enintään 480px --- */
@@ -968,7 +966,7 @@
   .composer-attach,
   .composer-mic {
     padding: 10px 12px;
-    font-size: 15px;
+    font-size: 16px;
     flex-shrink: 0;      /* napit eivät kutistu, vain tekstikenttä kutistuu */
   }
 
