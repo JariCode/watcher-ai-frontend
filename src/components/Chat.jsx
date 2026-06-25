@@ -15,11 +15,6 @@ import Sidebar from './Sidebar'
 import AdminPanel from './AdminPanel'
 import mammoth from 'mammoth'
 import * as XLSX from 'xlsx'
-import * as pdfjsLib from 'pdfjs-dist'
-import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
-
-// PDF.js tarvitsee worker-tiedoston taustakäsittelyyn (Vite antaa sille URLin)
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 function Chat({ user, onLogout }) {
   // Keskustelun id URL:sta (/chat/:id). Tyhjällä etusivulla undefined.
@@ -295,9 +290,9 @@ function Chat({ user, onLogout }) {
   async function processFile(file) {
     if (!file) return;
 
-    // Rajataan koko (5 Mt — riittää PDF:ille, Office-tiedostoille ja kuville)
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Tiedosto on liian suuri (max 5 Mt).');
+    // Rajataan koko (10 Mt — riittää PDF:ille, Office-tiedostoille ja kuville)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Tiedosto on liian suuri (max 10 Mt).');
       return;
     }
 
@@ -335,8 +330,29 @@ function Chat({ user, onLogout }) {
           name: file.name,
           content: '',          // kuvalla ei ole tekstisisältöä
           image: dataUrl,       // base64 data-URL
+          file: '',             // ei PDF-tiedostoa
+          fileName: '',
         });
         return;   // kuva käsitelty, ei jatketa tekstihaaroihin
+      }
+
+      // PDF luetaan base64:ksi ja lähetetään backendille, jossa siitä puretaan
+      // teksti. Selaimessa ei pureta mitään, joten toimii myös Safarissa/iPhonessa.
+      if (isPdf) {
+        const dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(new Error('PDF:n luku epäonnistui.'));
+          reader.readAsDataURL(file);
+        });
+        setAttachedFile({
+          name: file.name,
+          content: '',          // ei tekstisisältöä (backend purkaa PDF:n)
+          image: '',            // ei kuva
+          file: dataUrl,        // base64 data-URL PDF:stä
+          fileName: file.name,  // tiedoston nimi backendille
+        });
+        return;   // PDF käsitelty, ei jatketa tekstihaaroihin
       }
 
       if (isWord) {
@@ -356,31 +372,6 @@ function Chat({ user, onLogout }) {
           return `--- Välilehti: ${name} ---\n${csv}`;
         });
         content = parts.join('\n\n');
-      } else if (isPdf) {
-        // PDF: puretaan teksti sivu sivulta.
-        // isEvalSupported: false estää haitallisen PDF:n koodin ajamisen (turvallisuus)
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({
-          data: arrayBuffer,
-          isEvalSupported: false,
-        }).promise;
-
-        const pages = [];
-        // Käydään läpi jokainen sivu
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const textContent = await page.getTextContent();
-          // Yhdistetään sivun tekstipalat välilyönnein
-          const pageText = textContent.items.map((item) => item.str).join(' ');
-          pages.push(pageText);
-        }
-        content = pages.join('\n\n');
-
-        // Jos teksti jäi tyhjäksi, PDF on todennäköisesti skannattu (kuva, ei tekstiä)
-        if (!content || !content.trim()) {
-          alert('PDF:stä ei löytynyt tekstiä. Se voi olla skannattu kuva-PDF.');
-          return;
-        }
       } else {
         // Tavallinen teksti/koodi: luetaan suoraan tekstinä
         content = await file.text();
@@ -392,10 +383,20 @@ function Chat({ user, onLogout }) {
         return;
       }
 
+      // Yhtenäinen raja puretulle tekstille: backend hyväksyy enintään 50000
+      // merkkiä, joten torjutaan liian pitkä sisältö selkeällä viestillä
+      // ennen lähetystä (muuten yhteys voisi katketa isolla tiedostolla)
+      if (content.length > 50000) {
+        alert('Tiedoston sisältö on liian pitkä (max 50000 merkkiä). Kokeile pienempää tiedostoa.');
+        return;
+      }
+
       setAttachedFile({
         name: file.name,
         content: content,
         image: '',          // tekstitiedostolla ei kuvaa
+        file: '',           // ei PDF-tiedostoa
+        fileName: '',
       });
     } catch (err) {
       console.error('Tiedoston luku epäonnistui:', err.message);
@@ -455,6 +456,10 @@ function Chat({ user, onLogout }) {
     // Mahdollinen kuva (base64 data-URL)
     const messageImage = attachedFile?.image || '';
 
+    // Mahdollinen PDF (base64 data-URL) ja sen nimi — backend purkaa tekstin
+    const messageFile = attachedFile?.file || '';
+    const messageFileName = attachedFile?.fileName || '';
+
     // Jos ei ole avointa keskustelua (etusivu), luodaan ensin uusi ja siirrytään siihen
     let convId = id;
     if (!convId) {
@@ -469,17 +474,22 @@ function Chat({ user, onLogout }) {
       }
     }
 
+    // Näytöllä näytettävä teksti: PDF:n tapauksessa vain merkintä, koska itse
+    // teksti puretaan vasta backendissa (ei näytetä raakaa base64:ää)
+    const shownText = messageText
+      || (messageFileName ? `[Tiedosto: ${messageFileName}]` : '(kuva)');
+
     // Näytetään käyttäjän viesti heti (sisältää tiedoston/kuvan jos liitetty)
     setMessages((prev) => [
       ...prev,
-      { sender: 'user', text: messageText || '(kuva)', image: messageImage },
+      { sender: 'user', text: shownText, image: messageImage },
     ]);
     setInput('');
     setAttachedFile(null);   // tyhjennetään liite lähetyksen jälkeen
     setSending(true);
 
     try {
-      const data = await sendMessage(convId, messageText, messageImage);
+      const data = await sendMessage(convId, messageText, messageImage, messageFile, messageFileName);
       setMessages((prev) => [...prev, { sender: 'watcher', text: data.reply, image: data.image || '' }]);
       await loadConversations();
     } catch (err) {

@@ -84,11 +84,12 @@ export function deleteConversation(id) {
   return request(`/conversations/${id}`, { method: 'DELETE' });
 }
 
-// Lähetä viesti Watcherille keskustelussa (teksti ja/tai kuva)
-export function sendMessage(id, text, image) {
+// Lähetä viesti Watcherille keskustelussa (teksti, kuva ja/tai PDF-tiedosto)
+// file = PDF base64-data-URL, fileName = sen nimi (backend purkaa PDF:n tekstiksi)
+export function sendMessage(id, text, image, file, fileName) {
   return request(`/conversations/${id}/messages`, {
     method: 'POST',
-    body: JSON.stringify({ text, image }),
+    body: JSON.stringify({ text, image, file, fileName }),
   });
 }
 
