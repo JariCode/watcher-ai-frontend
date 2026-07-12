@@ -497,7 +497,7 @@ function Chat({ user, onLogout }) {
       setPlayingIndex(i);
     } catch (err) {
       console.error('Äänen toisto epäonnistui:', err.message);
-      alert('Watcherin ääntä ei saatu kuuluviin. Yritä uudelleen.');
+      alert(err.message || 'Watcherin ääntä ei saatu kuuluviin. Yritä uudelleen.');
     } finally {
       setLoadingAudioIndex(null);
     }
