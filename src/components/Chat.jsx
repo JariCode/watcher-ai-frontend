@@ -635,12 +635,12 @@ function Chat({ user, onLogout }) {
           <div className="composer">
             {/* Piilotettu tiedostovalitsin */}
             <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileSelect}
-            accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/*,image/*"
-            style={{ display: 'none' }}
-          />
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/*,image/*"
+              style={{ display: 'none' }}
+            />
 
             {/* Liite-nappi */}
             <button
