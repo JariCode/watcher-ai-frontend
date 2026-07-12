@@ -102,6 +102,15 @@ export function transcribeAudio(audio) {
   });
 }
 
+// Muunna teksti puheeksi (TTS). Ottaa Watcherin viestin tekstinä ja
+// palauttaa äänen base64 data-URL:na (data:audio/mpeg;base64,...).
+export function speakText(text) {
+  return request('/speech', {
+    method: 'POST',
+    body: JSON.stringify({ text }),
+  });
+}
+
 // --- ADMIN ---
 
 // Hae kaikki käyttäjät (vain admin)

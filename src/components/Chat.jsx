@@ -9,6 +9,7 @@ import {
   deleteConversation,
   sendMessage,
   transcribeAudio,
+  speakText,
 } from '../api'
 import DeleteAccount from './DeleteAccount'
 import Sidebar from './Sidebar'
@@ -45,6 +46,12 @@ function Chat({ user, onLogout }) {
   // Käännetäänkö puhetta tekstiksi juuri nyt (Whisper-kutsu kesken)
   const [transcribing, setTranscribing] = useState(false);
 
+  // Minkä viestin ääntä haetaan juuri nyt backendista (TTS-kutsu kesken)
+  const [loadingAudioIndex, setLoadingAudioIndex] = useState(null);
+
+  // Minkä viestin ääni soi juuri nyt
+  const [playingIndex, setPlayingIndex] = useState(null);
+
   // Onko tiedostoa raahaamassa alueen päälle (näyttöä varten)
   const [dragging, setDragging] = useState(false);
 
@@ -64,6 +71,10 @@ function Chat({ user, onLogout }) {
   // Viittaukset nauhoitukseen: itse nauhoitin ja kerätyt äänipalat
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
+
+  // Viittaus parhaillaan soivaan Watcherin ääneen (jotta edellinen voidaan
+  // pysäyttää kun uusi aloitetaan)
+  const currentAudioRef = useRef(null);
 
   // Viittaus piilotettuun tiedosto-inputtiin
   const fileInputRef = useRef(null);
@@ -133,8 +144,16 @@ function Chat({ user, onLogout }) {
     }
   }
 
+  // Pysäyttää mahdollisesti soivan Watcherin äänen (esim. kun vaihdetaan keskustelua)
+  function stopAudio() {
+    currentAudioRef.current?.pause();
+    currentAudioRef.current = null;
+    setPlayingIndex(null);
+  }
+
   // Avaa keskustelun: hakee sen viestit backendista
   async function openConversation(convId) {
+    stopAudio();
     try {
       const conv = await getConversation(convId);
       // Muunnetaan backendin viestit frontendin muotoon (mukaan myös mahdollinen kuva)
@@ -159,6 +178,7 @@ function Chat({ user, onLogout }) {
 
   // Luo uuden keskustelun → siirrytään etusivulle (tyhjä näkymä)
   function handleNew() {
+    stopAudio();
     navigate('/');
     setMessages([]);
     setSidebarOpen(false);
@@ -430,6 +450,59 @@ function Chat({ user, onLogout }) {
     setAttachedFile(null);
   }
 
+  // Toistaa (tai pysäyttää) Watcherin viestin äänenä. Hakee äänen
+  // backendista vain ensimmäisellä kerralla per viesti — tulos tallennetaan
+  // viestiin (msg.audio), jottei samaa repliikkiä generoida uudestaan.
+  async function handlePlayAudio(i) {
+    // Sama viesti soi jo → pysäytetään (play/pause-toggle)
+    if (playingIndex === i) {
+      currentAudioRef.current?.pause();
+      currentAudioRef.current = null;
+      setPlayingIndex(null);
+      return;
+    }
+
+    // Pysäytetään mahdollinen edellinen ääni ennen uuden aloitusta
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+    }
+    setPlayingIndex(null);
+
+    const msg = messages[i];
+    if (!msg) return;
+
+    try {
+      let audioUrl = msg.audio;
+
+      // Haetaan ääni backendista vain jos sitä ei ole vielä tälle viestille
+      if (!audioUrl) {
+        setLoadingAudioIndex(i);
+        const data = await speakText(msg.text);
+        audioUrl = data.audio;
+
+        // Tallennetaan haettu ääni viestiin, ettei sitä haeta uudestaan
+        setMessages((prev) =>
+          prev.map((m, idx) => (idx === i ? { ...m, audio: audioUrl } : m))
+        );
+      }
+
+      const audio = new Audio(audioUrl);
+      currentAudioRef.current = audio;
+      audio.onended = () => {
+        setPlayingIndex(null);
+        currentAudioRef.current = null;
+      };
+      await audio.play();
+      setPlayingIndex(i);
+    } catch (err) {
+      console.error('Äänen toisto epäonnistui:', err.message);
+      alert('Watcherin ääntä ei saatu kuuluviin. Yritä uudelleen.');
+    } finally {
+      setLoadingAudioIndex(null);
+    }
+  }
+
   // Lataa kuvan käyttäjän koneelle
   function downloadImage(dataUrl) {
     // Luodaan väliaikainen linkki ja klikataan sitä
@@ -599,6 +672,16 @@ function Chat({ user, onLogout }) {
                   </div>
                 )}
                 <p>{msg.text}</p>
+                {msg.sender === 'watcher' && (
+                  <button
+                    className="message-speak"
+                    onClick={() => handlePlayAudio(i)}
+                    disabled={loadingAudioIndex === i}
+                    title={playingIndex === i ? 'Pysäytä' : 'Kuuntele'}
+                  >
+                    {loadingAudioIndex === i ? '···' : playingIndex === i ? '⏸' : '▶'}
+                  </button>
+                )}
               </div>
             </div>
           ))}
