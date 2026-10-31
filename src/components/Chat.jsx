@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import watcherImg from '../assets/watcher.png'
 import {
@@ -83,6 +83,32 @@ function Chat({ user, onLogout }) {
   // ei ylikirjoita näytöllä olevia viestejä heti luonnin jälkeen
   const justCreatedId = useRef(null);
 
+  // Pysäyttää mahdollisesti soivan Watcherin äänen (esim. kun vaihdetaan keskustelua)
+  const stopAudio = useCallback(() => {
+    currentAudioRef.current?.pause();
+    currentAudioRef.current = null;
+    setPlayingIndex(null);
+  }, []);
+
+  // Avaa keskustelun: hakee sen viestit backendista
+  const openConversation = useCallback(async (convId) => {
+    stopAudio();
+    try {
+      const conv = await getConversation(convId);
+      // Muunnetaan backendin viestit frontendin muotoon (mukaan myös mahdollinen kuva)
+      setMessages(conv.messages.map((m) => ({
+        sender: m.role,
+        text: m.text,
+        image: m.image || '',
+      })));
+      setSidebarOpen(false);
+    } catch (err) {
+      console.error('Keskustelun avaus epäonnistui:', err.message);
+      // Jos keskustelua ei löydy (esim. poistettu), palataan etusivulle
+      navigate('/');
+    }
+  }, [navigate, stopAudio]);
+
   // Seurataan hiirtä, jotta silmät katsovat kursoria
   useEffect(() => {
     function handleMouseMove(e) {
@@ -117,10 +143,8 @@ function Chat({ user, onLogout }) {
         return;
       }
       openConversation(id);
-    } else {
-      setMessages([]);
     }
-  }, [id]);
+  }, [id, openConversation]);
 
   // Vieritetään alas aina kun viestit muuttuvat
   useEffect(() => {
@@ -141,32 +165,6 @@ function Chat({ user, onLogout }) {
       setConversations(list);
     } catch (err) {
       console.error('Keskustelujen lataus epäonnistui:', err.message);
-    }
-  }
-
-  // Pysäyttää mahdollisesti soivan Watcherin äänen (esim. kun vaihdetaan keskustelua)
-  function stopAudio() {
-    currentAudioRef.current?.pause();
-    currentAudioRef.current = null;
-    setPlayingIndex(null);
-  }
-
-  // Avaa keskustelun: hakee sen viestit backendista
-  async function openConversation(convId) {
-    stopAudio();
-    try {
-      const conv = await getConversation(convId);
-      // Muunnetaan backendin viestit frontendin muotoon (mukaan myös mahdollinen kuva)
-      setMessages(conv.messages.map((m) => ({
-        sender: m.role,
-        text: m.text,
-        image: m.image || '',
-      })));
-      setSidebarOpen(false);
-    } catch (err) {
-      console.error('Keskustelun avaus epäonnistui:', err.message);
-      // Jos keskustelua ei löydy (esim. poistettu), palataan etusivulle
-      navigate('/');
     }
   }
 
@@ -191,6 +189,7 @@ function Chat({ user, onLogout }) {
       // Jos poistettiin avoinna oleva, palataan etusivulle
       if (convId === id) {
         navigate('/');
+        setMessages([]);
       }
       await loadConversations();
     } catch (err) {
