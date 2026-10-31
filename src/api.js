@@ -3,16 +3,43 @@ const API_URL = import.meta.env.DEV
   ? 'http://localhost:5000/api'
   : import.meta.env.VITE_API_URL;
 
+let csrfToken;
+
+async function getCsrfToken() {
+  if (csrfToken) {
+    return csrfToken;
+  }
+
+  const response = await fetch(`${API_URL}/csrf-token`, {
+    credentials: 'include',
+  });
+  const data = await response.json();
+
+  if (!response.ok || typeof data.csrfToken !== 'string') {
+    throw new Error(data.error || 'CSRF-tokenin hakeminen epäonnistui.');
+  }
+
+  csrfToken = data.csrfToken;
+  return csrfToken;
+}
+
 // Yhteinen apufunktio kaikille kutsuille.
 // credentials: 'include' on PAKOLLINEN — se lähettää evästeen (JWT-tokenin) mukana.
 async function request(path, options = {}) {
+  const method = (options.method || 'GET').toUpperCase();
+  const headers = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+    headers['X-CSRF-Token'] = await getCsrfToken();
+  }
+
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
     credentials: 'include', // lähettää ja vastaanottaa evästeet
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+    headers,
   });
 
   // Luetaan vastaus JSONina
